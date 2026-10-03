@@ -1,0 +1,13 @@
+[project]
+name = "fraud-transaction-generator"
+version = "0.1.0"
+description = "Synthetic transaction generator for fraud detection pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "confluent-kafka[avro]>=2.15.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
