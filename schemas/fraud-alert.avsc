@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "FraudAlert",
+  "namespace": "com.frauddetection",
+  "fields": [
+    {"name": "alert_id", "type": "string"},
+    {"name": "transaction_id", "type": "string"},
+    {"name": "account_id", "type": "string"},
+    {"name": "alert_type", "type": {"type": "enum", "name": "AlertType", "symbols": ["VELOCITY", "GEO_ANOMALY", "AMOUNT_ANOMALY", "CARD_TESTING", "BLACKLIST", "MODEL_HIGH_RISK"]}},
+    {"name": "risk_score", "type": "double"},
+    {"name": "rule_scores", "type": {"type": "map", "values": "double"}},
+    {"name": "model_score", "type": ["null", "double"], "default": null},
+    {"name": "decision", "type": {"type": "enum", "name": "Decision", "symbols": ["APPROVE", "REVIEW", "DECLINE"]}},
+    {"name": "explanation", "type": "string"},
+    {"name": "created_at", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}

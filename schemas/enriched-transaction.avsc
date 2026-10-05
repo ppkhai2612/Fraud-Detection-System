@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "EnrichedTransaction",
+  "namespace": "com.frauddetection",
+  "fields": [
+    {"name": "transaction_id", "type": "string"},
+    {"name": "account_id", "type": "string"},
+    {"name": "merchant_id", "type": "string"},
+    {"name": "amount", "type": "double"},
+    {"name": "currency", "type": "string"},
+    {"name": "transaction_type", "type": "com.frauddetection.TransactionType"},
+    {"name": "channel", "type": "com.frauddetection.Channel"},
+    {"name": "location", "type": ["null", "com.frauddetection.Location"], "default": null},
+    {"name": "timestamp", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "account_type", "type": ["null", "com.frauddetection.AccountType"], "default": null},
+    {"name": "account_status", "type": ["null", "com.frauddetection.AccountStatus"], "default": null},
+    {"name": "account_risk_score", "type": ["null", "double"], "default": null},
+    {"name": "merchant_category", "type": ["null", "string"], "default": null},
+    {"name": "merchant_risk_level", "type": ["null", "com.frauddetection.MerchantRiskLevel"], "default": null},
+    {"name": "is_blacklisted", "type": ["null", "boolean"], "default": null}
+  ]
+}

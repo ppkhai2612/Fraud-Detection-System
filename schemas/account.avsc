@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "Account",
+  "namespace": "com.frauddetection",
+  "fields": [
+    {"name": "account_id", "type": "string"},
+    {"name": "customer_id", "type": "string"},
+    {"name": "account_type", "type": {"type": "enum", "name": "AccountType",
+    "symbols": ["CHECKING", "SAVINGS", "CREDIT", "PREPAID"]}},
+    {"name": "status", "type": {"type": "enum", "name": "AccountStatus",
+    "symbols": ["ACTIVE", "SUSPENDED", "CLOSED"]}},
+    {"name": "created_at", "type": "long", "logicalType": "timestamp-millis"},
+    {"name": "risk_score", "type": ["null", "double"], "default": null},
+    {"name": "country", "type": "string"},
+    {"name": "updated_at", "type": "long", "logicalType": "timestamp-millis"}
+  ]
+}
