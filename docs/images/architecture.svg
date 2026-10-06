@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 700" font-family="system-ui, -apple-system, sans-serif">
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5"
+            markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#666666"/>
+    </marker>
+    <marker id="arrow-light" viewBox="0 0 10 7" refX="10" refY="3.5"
+            markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#999999"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="1100" height="700" fill="white"/>
+
+  <!-- ============================================================ -->
+  <!-- LAYER 1: Group backgrounds                                   -->
+  <!-- ============================================================ -->
+
+  <rect x="10" y="8" width="500" height="88" rx="8" fill="#F5F5F5" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="10" y="118" width="1080" height="265" rx="8" fill="#F5F5F5" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="10" y="403" width="1080" height="72" rx="8" fill="#F5F5F5" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="10" y="498" width="380" height="78" rx="8" fill="#F5F5F5" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="640" y="498" width="450" height="78" rx="8" fill="#F5F5F5" stroke="#E0E0E0" stroke-width="1"/>
+  <rect x="10" y="600" width="480" height="55" rx="8" fill="#F5F5F5" stroke="#E0E0E0" stroke-width="1"/>
+
+  <!-- Group labels -->
+  <text x="20" y="24" font-size="11" fill="#999999" font-weight="600">Kafka Input Topics</text>
+  <text x="1080" y="136" font-size="12" fill="#999999" font-weight="600" text-anchor="end">Flink Job: Fraud Detection Pipeline</text>
+  <text x="140" y="420" font-size="11" fill="#999999" font-weight="600">Kafka Output Topics</text>
+  <text x="20" y="514" font-size="11" fill="#999999" font-weight="600">External Services</text>
+  <text x="650" y="514" font-size="11" fill="#999999" font-weight="600">Monitoring</text>
+  <text x="20" y="616" font-size="11" fill="#999999" font-weight="600">Legend</text>
+
+  <!-- ============================================================ -->
+  <!-- LAYER 2: Component boxes and text                            -->
+  <!-- ============================================================ -->
+
+  <!-- === Kafka Input Topics === -->
+  <rect x="25" y="36" width="120" height="34" rx="6" fill="#2C3E50"/>
+  <text x="85" y="57" font-size="12" fill="white" text-anchor="middle">transactions</text>
+  <text x="85" y="82" font-size="9" fill="#999999" text-anchor="middle">6 partitions</text>
+
+  <rect x="165" y="36" width="130" height="34" rx="6" fill="#2C3E50"/>
+  <text x="230" y="57" font-size="12" fill="white" text-anchor="middle">account-updates</text>
+
+  <rect x="315" y="36" width="140" height="34" rx="6" fill="#2C3E50"/>
+  <text x="385" y="57" font-size="12" fill="white" text-anchor="middle">merchant-updates</text>
+
+  <!-- === Flink Pipeline Row 1: Enrichment === -->
+  <rect x="35" y="155" width="130" height="55" rx="8" fill="#1A73E8"/>
+  <text x="100" y="179" font-size="13" fill="white" text-anchor="middle">Transaction</text>
+  <text x="100" y="197" font-size="13" fill="white" text-anchor="middle">Validator</text>
+
+  <rect x="215" y="155" width="130" height="55" rx="8" fill="#1A73E8"/>
+  <text x="280" y="179" font-size="13" fill="white" text-anchor="middle">Account</text>
+  <text x="280" y="197" font-size="13" fill="white" text-anchor="middle">Enrichment</text>
+  <text x="280" y="224" font-size="10" fill="#888888" text-anchor="middle" font-style="italic">broadcast state</text>
+
+  <rect x="395" y="155" width="130" height="55" rx="8" fill="#1A73E8"/>
+  <text x="460" y="179" font-size="13" fill="white" text-anchor="middle">Merchant</text>
+  <text x="460" y="197" font-size="13" fill="white" text-anchor="middle">Enrichment</text>
+  <text x="460" y="224" font-size="10" fill="#888888" text-anchor="middle" font-style="italic">broadcast state</text>
+
+  <!-- === Flink Pipeline Row 2: Scoring === -->
+  <rect x="395" y="292" width="130" height="55" rx="8" fill="#1A73E8"/>
+  <text x="460" y="316" font-size="13" fill="white" text-anchor="middle">Feature</text>
+  <text x="460" y="334" font-size="13" fill="white" text-anchor="middle">Computation</text>
+  <text x="460" y="361" font-size="10" fill="#888888" text-anchor="middle" font-style="italic">keyed state</text>
+
+  <rect x="570" y="292" width="130" height="55" rx="8" fill="#1A73E8"/>
+  <text x="635" y="316" font-size="13" fill="white" text-anchor="middle">Rule Engine</text>
+  <text x="635" y="334" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">(5 rules)</text>
+
+  <rect x="745" y="292" width="130" height="55" rx="8" fill="#1A73E8"/>
+  <text x="810" y="316" font-size="13" fill="white" text-anchor="middle">Async ML</text>
+  <text x="810" y="334" font-size="13" fill="white" text-anchor="middle">Scorer</text>
+
+  <rect x="920" y="292" width="145" height="55" rx="8" fill="#1A73E8"/>
+  <text x="992" y="316" font-size="12" fill="white" text-anchor="middle">Score Fusion &amp;</text>
+  <text x="992" y="334" font-size="12" fill="white" text-anchor="middle">Decision Router</text>
+
+  <!-- === Kafka Output Topics === -->
+  <rect x="25" y="430" width="105" height="30" rx="6" fill="#2C3E50"/>
+  <text x="77" y="450" font-size="12" fill="white" text-anchor="middle">dead-letter</text>
+
+  <rect x="310" y="430" width="165" height="30" rx="6" fill="#2C3E50"/>
+  <text x="392" y="450" font-size="12" fill="white" text-anchor="middle">enriched-transactions</text>
+
+  <rect x="755" y="430" width="130" height="30" rx="6" fill="#2C3E50"/>
+  <text x="820" y="450" font-size="12" fill="white" text-anchor="middle">alerts-high-risk</text>
+
+  <rect x="910" y="430" width="115" height="30" rx="6" fill="#2C3E50"/>
+  <text x="967" y="450" font-size="12" fill="white" text-anchor="middle">alerts-review</text>
+
+  <!-- === External Services === -->
+  <rect x="25" y="522" width="165" height="40" rx="8" fill="#34A853"/>
+  <text x="107" y="547" font-size="12" fill="white" text-anchor="middle">Transaction Generator</text>
+
+  <rect x="210" y="522" width="160" height="40" rx="8" fill="#34A853"/>
+  <text x="290" y="542" font-size="13" fill="white" text-anchor="middle">Model Service</text>
+  <text x="290" y="556" font-size="10" fill="rgba(255,255,255,0.7)" text-anchor="middle">(FastAPI)</text>
+
+  <!-- === Monitoring === -->
+  <rect x="660" y="522" width="140" height="40" rx="8" fill="#7B1FA2"/>
+  <text x="730" y="547" font-size="13" fill="white" text-anchor="middle">Prometheus</text>
+
+  <rect x="830" y="522" width="120" height="40" rx="8" fill="#7B1FA2"/>
+  <text x="890" y="547" font-size="13" fill="white" text-anchor="middle">Grafana</text>
+
+  <!-- ============================================================ -->
+  <!-- LAYER 3: All arrows — orthogonal routing (H/V only)          -->
+  <!-- ============================================================ -->
+
+  <!-- transactions → Transaction Validator (right edge, avoids "6 partitions") -->
+  <path d="M 145 70 L 145 142 Q 145 148 139 148 L 106 148 Q 100 148 100 155"
+        stroke="#666666" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- account-updates → Account Enrichment (broadcast, dashed) -->
+  <path d="M 230 70 L 230 94 Q 230 100 236 100 L 274 100 Q 280 100 280 106 L 280 155"
+        stroke="#666666" stroke-width="2" fill="none" stroke-dasharray="6,4"
+        marker-end="url(#arrow)"/>
+  <text x="240" y="114" font-size="10" fill="#666666">broadcast</text>
+
+  <!-- merchant-updates → Merchant Enrichment (broadcast, dashed) -->
+  <path d="M 385 70 L 385 94 Q 385 100 391 100 L 454 100 Q 460 100 460 106 L 460 155"
+        stroke="#666666" stroke-width="2" fill="none" stroke-dasharray="6,4"
+        marker-end="url(#arrow)"/>
+  <text x="415" y="114" font-size="10" fill="#666666">broadcast</text>
+
+  <!-- Validator → Account Enrichment -->
+  <line x1="165" y1="182" x2="215" y2="182" stroke="#666666" stroke-width="2"
+        marker-end="url(#arrow)"/>
+
+  <!-- Account Enrichment → Merchant Enrichment -->
+  <line x1="345" y1="182" x2="395" y2="182" stroke="#666666" stroke-width="2"
+        marker-end="url(#arrow)"/>
+
+  <!-- Merchant Enrichment → Feature Computation (right of "broadcast state") -->
+  <line x1="520" y1="210" x2="520" y2="292" stroke="#666666" stroke-width="2"
+        marker-end="url(#arrow)"/>
+
+  <!-- Feature Computation → Rule Engine -->
+  <line x1="525" y1="319" x2="570" y2="319" stroke="#666666" stroke-width="2"
+        marker-end="url(#arrow)"/>
+
+  <!-- Rule Engine → Async ML Scorer -->
+  <line x1="700" y1="319" x2="745" y2="319" stroke="#666666" stroke-width="2"
+        marker-end="url(#arrow)"/>
+
+  <!-- ML Scorer → Score Fusion -->
+  <line x1="875" y1="319" x2="920" y2="319" stroke="#666666" stroke-width="2"
+        marker-end="url(#arrow)"/>
+
+  <!-- Validator → dead-letter (dashed, straight vertical) -->
+  <line x1="77" y1="210" x2="77" y2="430" stroke="#666666" stroke-width="2"
+        stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+  <text x="83" y="320" font-size="10" fill="#CC4444" font-style="italic">invalid</text>
+
+  <!-- Merchant Enrichment → enriched-transactions (dashed, routed left of Feature Comp) -->
+  <path d="M 400 210 L 400 248 Q 400 254 394 254 L 346 254 Q 340 254 340 260
+           L 340 418 Q 340 424 346 424 L 386 424 Q 392 424 392 430"
+        stroke="#666666" stroke-width="2" fill="none" stroke-dasharray="6,4"
+        marker-end="url(#arrow)"/>
+
+  <!-- Score Fusion → alerts-high-risk (DECLINE) -->
+  <path d="M 960 347 L 960 384 Q 960 390 954 390 L 826 390 Q 820 390 820 396 L 820 430"
+        stroke="#666666" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="875" y="384" font-size="10" fill="#CC4444" font-weight="600">DECLINE</text>
+
+  <!-- Score Fusion → alerts-review (REVIEW) -->
+  <path d="M 1020 347 L 1020 399 Q 1020 405 1014 405 L 973 405 Q 967 405 967 411 L 967 430"
+        stroke="#666666" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="985" y="399" font-size="10" fill="#E67E22" font-weight="600">REVIEW</text>
+
+  <!-- Transaction Generator → transactions topic (up left margin) -->
+  <path d="M 25 540 L 21 540 Q 15 540 15 534 L 15 59 Q 15 53 21 53 L 25 53"
+        stroke="#666666" stroke-width="2" fill="none" stroke-dasharray="6,4"
+        marker-end="url(#arrow)"/>
+
+  <!-- Model Service → Async ML Scorer (async HTTP, dashed) -->
+  <path d="M 290 522 L 290 486 Q 290 480 296 480 L 704 480 Q 710 480 710 474
+           L 710 325 Q 710 319 716 319 L 745 319"
+        stroke="#666666" stroke-width="2" fill="none" stroke-dasharray="6,4"
+        marker-end="url(#arrow)"/>
+  <text x="490" y="475" font-size="10" fill="#666666">async HTTP</text>
+
+  <!-- Flink Pipeline → Prometheus (metrics, lighter) -->
+  <line x1="730" y1="383" x2="730" y2="522" stroke="#999999" stroke-width="1.5"
+        stroke-dasharray="4,3" marker-end="url(#arrow-light)"/>
+  <text x="736" y="450" font-size="10" fill="#999999">metrics</text>
+
+  <!-- Prometheus → Grafana (lighter) -->
+  <line x1="800" y1="542" x2="830" y2="542" stroke="#999999" stroke-width="1.5"
+        stroke-dasharray="4,3" marker-end="url(#arrow-light)"/>
+
+  <!-- ============================================================ -->
+  <!-- LEGEND                                                       -->
+  <!-- ============================================================ -->
+  <rect x="25" y="626" width="14" height="14" rx="3" fill="#2C3E50"/>
+  <text x="45" y="638" font-size="11" fill="#555555">Kafka Topics</text>
+
+  <rect x="135" y="626" width="14" height="14" rx="3" fill="#1A73E8"/>
+  <text x="155" y="638" font-size="11" fill="#555555">Flink Operators</text>
+
+  <rect x="265" y="626" width="14" height="14" rx="3" fill="#34A853"/>
+  <text x="285" y="638" font-size="11" fill="#555555">External Services</text>
+
+  <rect x="395" y="626" width="14" height="14" rx="3" fill="#7B1FA2"/>
+  <text x="415" y="638" font-size="11" fill="#555555">Monitoring</text>
+
+</svg>
