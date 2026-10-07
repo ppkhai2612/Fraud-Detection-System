@@ -4,12 +4,12 @@
   "namespace": "com.frauddetection",
   "fields": [
 	{"name": "merchant_id", "type": "string"},
-	{"name": "name", "type": "string"},
+	{"name": "merchant_name", "type": "string"},
 	{"name": "category", "type": "string"},
 	{"name": "country", "type": "string"},
 	{"name": "risk_level", "type": {"type": "enum", "name": "MerchantRiskLevel",
 	"symbols": ["LOW", "MEDIUM", "HIGH"]}},
-	{"name": "is_blacklisted", "type": "boolean"},
+	{"name": "is_blacklisted", "type": "boolean", "default": false},
 	{"name": "updated_at", "type": "long", "logicalType": "timestamp-millis"}
   ]
 }
