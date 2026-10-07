@@ -99,6 +99,16 @@ For production, switch `state.backend.type` to `rocksdb` for larger-than-memory 
 
 ## Rule Thresholds
 
+Rule thresholds live as constants in each rule class. For production, externalize them to environment variables via `PipelineConfig`.
+
+| **Rule** | **Threshold** | **Value** | **Class** |
+|-|-|-|-|
+|||||
+|||||
+|||||
+|||||
+|||||
+
 ## Score Fusion Weights
 
 ## Docker Resource Limits

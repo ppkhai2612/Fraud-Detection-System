@@ -58,6 +58,15 @@ See [demo/README.md](demo/README.md) for detailed walkthroughs.
 
 ## Fraud Detection Rules
 
+| **Rule** | **Detects** | **Score Range** |
+|-|-|-|
+| Velocity | High transaction frequency (>5 in 5-min window) | 0.0 - 1.0 |
+| Geo Anomaly | Impossible travel (>900 km/h between transactions) | 0.0 / 0.5 / 0.9 |
+| Amount Threshold | Statistical outliers via z-score against account history | 0.0 / 0.2 / 0.5 / 0.9 |
+| Card Testing | Multiple small probing transactions (<$1 or <$5) | 0.0 / 0.6 / 0.8 |
+| Blacklist | Blacklisted merchants, suspended accounts, high-risk flags | 0.0 / 0.4 / 0.7 /1.0 |
+
+Rule scores are fused with the ML model score using configurable weights. See [Score Fusion](docs/ARCHITECTURE.md#score-fusion) for scoring details.
 
 ## Project Structure
 
