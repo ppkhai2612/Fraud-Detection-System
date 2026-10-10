@@ -12,10 +12,10 @@
     <!-- Flink 2.2.0 (released Dec 2025) -->
     <flink.version>2.2.0</flink.version>
     <!--
-              Flink Kafka Connector: own versioning (CONNECTOR-FLINK_API).
-              4.0.1-2.0 = connector v4.0.1, targets Flink 2.0 API.
-              Compatible with Flink 2.0/2.1/2.2 (stable API within 2.x).
-          -->
+        Flink Kafka Connector: own versioning (CONNECTOR-FLINK_API).
+        4.0.1-2.0 = connector v4.0.1, targets Flink 2.0 API.
+        Compatible with Flink 2.0/2.1/2.2 (stable API within 2.x).
+    -->
     <flink.kafka.connector.version>4.0.1-2.0</flink.kafka.connector.version>
     <avro.version>1.12.0</avro.version>
     <jackson.version>2.17.0</jackson.version>
