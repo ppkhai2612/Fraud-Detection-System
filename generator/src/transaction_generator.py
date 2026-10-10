@@ -256,8 +256,8 @@ def run() -> None:
             fraud_pct = (total_fraud / total_produced * 100) if total_produced > 0 else 0
             legit = total_produced - total_fraud
             logger.info(f"""
-                Generated {total_produced} transactions ({rate:.0f}),
-                {total_fraud} fraud ({fraud_pct:.1f%}), {legit} legitimate
+                Generated {total_produced} transactions ({rate:.0f}/s),
+                {total_fraud} fraud ({fraud_pct:.1f}%), {legit} legitimate
             """)
             total_produced = 0
             total_fraud = 0

@@ -13,6 +13,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+COPY --from=builder /app/.venv .venv
+COPY --from=builder /app/src src
+
 # Schemas from project root (build context is project root)
 COPY schemas/ schemas/
 

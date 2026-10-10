@@ -1,12 +1,14 @@
-.PHONY: up up down restart status logs clean \
+.PHONY: up down restart status logs clean \
 		setup setup-python setup-topics setup-schemas \
 		build build-flink \
 		deploy-jobs cancel-jobs produce-test-transaction produce-test-data \
 		start-generator stop-generator logs-generator \
+		start-monitoring stop-monitoring \
 		check-health wait-healthy \
-		help
+		open-flink open-grafana open-prometheus help
 
-COMPOSE := docker compose
+COMPOSE := docker compose -f docker-compose.yml
+PYTHON := .venv/bin/python3
 
 # ============================================================
 # Core Lifecycle
@@ -68,7 +70,7 @@ wait-healthy: # Wait until all services are healthy
 		if bash scripts/check-health.sh > /dev/null 2>&1; then \
 			echo "All services healthy."; \
 			exit 0; \
-		fi;
+		fi; \
 		echo "  Attempt $$i/60 - waiting 5s..."; \
 		sleep 5; \
 	done; \
@@ -117,6 +119,25 @@ logs-generator: # Tail generator logs
 # Monitoring
 # ============================================================
 
+start-monitoring: # Start Prometheus, Grafana, and kafka-exporter
+	$(COMPOSE) --profile monitoring up -d prometheus grafana kafka-exporter
+	@echo "Grafana:    http://localhost:3000 (admin/admin)"
+	@echo "Prometheus: http://localhost:9090"
+
+stop-monitoring: # Stop monitoring services
+	$(COMPOSE) --profile monitoring stop prometheus grafana kafka-exporter
+
+open-flink: # Open Flink Web UI
+	@echo "Opening http://localhost:8082"
+	@which xdg-open > /dev/null 2>&1 && xdg-open http://localhost:8082 || echo "Open http://localhost:8082 in your browser"
+
+open-grafana: # Open Grafana in browser
+	@echo "Opening http://localhost:3000"
+	@which xdg-open > /dev/null 2>&1 && xdg-open http://localhost:3000 || echo "Open http://localhost:3000 in your browser"
+
+open-prometheus: # Open Prometheus in browser
+	@echo "Opening http://localhost:9090"
+	@which xdg-open > /dev/null 2>&1 && xdg-open http://localhost:9090 || echo "Open http://localhost:9090 in your browser"
 
 # ============================================================
 # Demo Scenarios
