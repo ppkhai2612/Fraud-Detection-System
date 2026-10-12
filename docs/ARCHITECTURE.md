@@ -16,9 +16,11 @@ A transaction takes this path through the pipeline:
 4. **MerchantBroadcastFunction** adds merchant data (category, risk level, blacklist flag) from a second broadcast state
 5. The enriched transaction is written to the `enriched-transactions` topic
 6. **AccountFeatureFunction** computes per-account features: rolling average, standard deviation, velocity count, time since last transaction, distance from last location
+7. **RuleEngineFunction** applies five fraud detection rules, each producing a score from 0.0 to 1.0
+8. **AsyncModelClient** sends the scored transaction to the ML model service via HTTP and attaches the returned fraud probability
+9. **AlertBuilder** fuses rule and model scores into a single risk score, makes an approve/review/decline decision and writes `FraudAlert` records to `alerts-high-risk` or `alerts-review`
 
-
-The main pipelien class is FraudDetectionPipeline in the pipeline module. It wires all stages together:
+The main pipelien class is `FraudDetectionPipeline` in the `pipeline` module. It wires all stages together:
 
 ```java
 // Validation with dead-letter side output
@@ -77,7 +79,50 @@ If no account or merchant data exists for a given ID, the enrichment fields are 
 
 ## Feature Computation
 
+`AccountFeatureFunction` is a `KeyedProcessFunction` keyed by `account_id`. It maintains eight pieces of state per account:
+
+| **State** | **Type** | **Purpose** |
+|-|-|-|
+| `tx-count` | `ValueState<Long>` | Lifetime transaction count |
+| `tx-sum` | `ValueState<Double>` | Lifetime sum of amounts |
+| `tx-sum-squares` | `ValueState<Double>` | Sum of squared amounts (for stddev) |
+| `recent-timestamps` | `ListState<Long>` | Timestamps in the velocity window |
+| `last-timestamp` | `ValueState<Long>`	| When the last transaction occurred |
+| `last-lat` | `ValueState<Double>` | Last known latitude |
+| `last-lon` | `ValueState<Double>` | Last known longitude |
+| `next-timer` | `ValueState<Long>` | Next cleanup timer timestamp |
+
+From this state the function computes a `FeatureVector` for each transaction:
+- **txCountInWindow** - number of transactions in the last 5 minutes (velocity)
+- **avgAmount** - running average of all transaction amounts
+- **stdDevAmount** - population standard deviation (computed from running sums, not stored history)
+- **msSinceLastTx** - milliseconds since the previous transaction (-1 if first)
+- **distanceFromLastKm** - Haversine distance in km from the last transaction's location
+- **impossibleTravel** - boolean flag if the implied travel speed exceeds 900 km/h
+
+A processing-time timer fires every 60 seconds to evict expired timestamps from the `recent-timestamps` list, preventing unbounded state growth.
+
+The `computeStdDev` function computes standard deviation from running sums using the identity `Var(X) = E[X^2] - (E[X])^2`, avoiding the need to store full transaction history.
+
+```java
+static double computeStdDev(double sumSquares, double sum, long count) {
+    if (count < 2) return 0.0;
+    double variance = (sumSquares / count) - (sum / count) * (sum / count);
+    return variance > 0 ? Math.sqrt(variance) : 0.0;
+}
+```
+
 ## Rule Engine
+
+Five rules implement the `FraudRule` interface. Each receives a `FeatureVector` and returns a `RuleResult` with a name, score (0.0 to 1.0) and explanation string.
+
+```java
+public interface FraudRule extends Serializable {
+    RuleResult evaluate(FeatureVector featureVector);
+}
+```
+
+`RuleEngineFunction` applies all five rules to each feature vector and collects the scores into a `ScoredTransaction`.
 
 ### VelocityRule
 
@@ -85,7 +130,7 @@ Detects high transaction frequency. If more than 5 transactions occur within the
 
 ### GeoAnomalyRule
 
-Flags impossible travel. Uses the Haversine distance and time between consecutive transactions to estimate travel speed. Speed above 900 km/h scores 0.9 (impossible travel). Distance above 500 km within 2 hours scores 0.5 (suspicious).
+Flags impossible travel. Uses the Haversine distance and time between consecutive transactions to estimate travel speed. Either distance below 50 km *or* time is not positive *or* speed above 900 km/h score 0.9 (impossible travel). Distance above 500 km within 2 hours scores 0.5 (suspicious).
 
 ### AmountThresholdRule
 
@@ -101,11 +146,75 @@ Checks enrichment data for known bad actors. Blacklisted merchant scores 1.0. Su
 
 ## ML Integration
 
+AsyncModelClient uses Flink's async I/O to call the model service without blocking the pipeline. The key design decisions:
+- **Unordered wait**. `AsyncDataStream.unorderedWait` allows results to return in any order. This maximizes throughput at the cost of output ordering - acceptable here because the downstream score fusion does not depend on transaction ordering.
+
+	```java
+	DataStream<ScoredTransaction> modelScored = AsyncDataStream.unorderedWait(
+			scored,
+			new AsyncModelClient(),
+			PipelineConfig.modelTimeoutMs(), // 2000ms default 
+			TimeUnit.MILLISECONDS,
+			PipelineConfig.modelMaxConcurrent()) // 100 concurrent requests
+			.name("Async Model Scoring");
+	```
+
+- **Timeout fallback**. If the model service does not respond within 2 seconds (or returns an error), modelScore remains null. The score fusion layer detects this and falls back to rules-only scoring with renormalized weights. The pipeline never stops processing due to model unavailability.
+- **Capacity limit**. At most 100 requests are in flight simultaneously. If the pipeline produces transactions faster than the model can score them, Flink applies backpressure upstream rather than overwhelming the model service.
+
+The model service itself is a FastAPI application serving a scikit-learn classifier. It accepts transaction features and rule scores as input and returns a fraud probability between 0.0 and 1.0.
+
 ## Score Fusion
+
+`WeightedScoreFusion` combines rule scores and the model score into a single risk score using fixed weights:
+
+| **Source** | **Weight** |
+|-|-|
+| Velocity rule | 0.15 |
+| Geo anomaly rule | 0.20 |
+| Amount threshold rule | 0.15 |
+| Card testing rule | 0.10 |
+| Blacklist rule | 0.20 |
+| ML model | 0.20 |
+
+The fused score is a weighted average:
+
+```
+fusedScore = (sum of score_i * weight_i) / (sum of weight_i)
+```
+
+When the model score is `null` (timeout or service down), the model weight is excluded and the remaining rule weights are renormalized:
+
+```java
+if (scored.modelScore != null) {
+    double totalWeight = ruleWeightSum + W_MODEL;
+    return (ruleSum + scored.modelScore * W_MODEL) / totalWeight;
+} else {
+    return ruleSum / ruleWeightSum;
+}
+```
+
+This renormalization means the pipeline produces slightly different scores during a model outage, but never stops making decisions.
 
 ## Decision Routing
 
+`DecisionRouter` maps the fused score to a decision using two configurable thresholds:
 
+| **Score Range** | **Decision** | **Destination Topic** |
+|-|-|-|
+| < 0.3 | APPROVE | (no output - approved transactions are not routed) |
+| 0.3 - 0.7 | REVIEW | `alerts-review` |
+| >= 0.7 | DECLINE | `alerts-high-risk` |
+
+`AlertBuilder` ties everything together. For each transaction it:
+1. Calls `WeightedScoreFusion.fuse()` to compute the final score
+2. Calls `DecisionRouter.route()` to determine the decision
+3. Identifies the highest-contributing rule as the `AlertType`
+4. Generates a human-readable explanation via `ExplanationBuilder`
+5. Builds a `FraudAlert` Avro record
+6. Increments custom Flink counters for monitoring
+
+The alert type reflects which scoring source contributed most. If the model score is the highest individual score, the type is `MODEL_HIGH_RISK`. Otherwise it maps to the highest-scoring rule (e.g. `VELOCITY`, `BLACKLIST`).
 
 ## Serialization
 
@@ -123,3 +232,12 @@ All Kafka messages use Avro with Confluent Schema Registry. Five schemas are def
 
 ## Checkpointing and Fault Tolerance
 
+The pipeline runs with exactly-once checkpointing at 10-second intervals. State is stored in the hashmap backend (in-memory, suitable for development). The restart strategy allows up to 30 attempts with 10-second delays.
+
+On a TaskManager failure:
+1. The JobManager detects the lost TaskManager
+2. When a new TaskManager registers, the job restarts from the last completed checkpoint
+3. All operator state is restored - broadcast state (account/merchant lookup tables), keyed state (per-account features and statistics) and Kafka consumer offsets
+4. Processing resumes from the checkpointed Kafka offsets with no data loss or duplication
+
+The `demo-recovery` demo script shows this in action by killing the TaskManager container and watching the automatic recovery.

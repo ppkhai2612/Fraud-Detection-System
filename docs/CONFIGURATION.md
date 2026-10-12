@@ -103,13 +103,29 @@ Rule thresholds live as constants in each rule class. For production, externaliz
 
 | **Rule** | **Threshold** | **Value** | **Class** |
 |-|-|-|-|
-|||||
-|||||
-|||||
-|||||
-|||||
+| Velocity | Max transactions in window | 5 | `VelocityRule` |
+| Velocity | Window duration | 5 minutes | `AccountFeatureFunction` |
+| Geo Anomaly | Suspicious distance | 500 km | `GeoAnomalyRule` |
+| Geo Anomaly | Impossible travel speed | 900 km/h | `GeoUtils` |
+| Amount Threshold | High z-score | 3.0 (score 0.9) | `AmountThresholdRule` |
+| Amount Threshold | Medium z-score	| 2.0 (score 0.5) | `AmountThresholdRule` |
+| Card Testing | Micro-transaction threshold | $1.00 | `CardTestingRule` |
+| Card Testing | Small-transaction threshold | $5.00 | `CardTestingRule` |
 
 ## Score Fusion Weights
+
+Defined in `WeightedScoreFusion.java`:
+
+| **Source** | **Weight** |
+|-|-|
+| Velocity rule | 0.15 |
+| Geo anomaly rule | 0.20 |
+| Amount threshold rule | 0.15 |
+| Card testing rule | 0.10 |
+| Blacklist rule | 0.20 |
+| ML model | 0.20 |
+
+When the model is unavailable (timeout or error), rule weights are renormalized to sum to 1.0 and the model weight is excluded.
 
 ## Docker Resource Limits
 
@@ -125,6 +141,6 @@ Memory limits per container in `docker-compose.yml`:
 | `generator` | 256 MB | Python process |
 | `kafka-exporter` | 128 MB | Monitoring profile only |
 | `prometheus` | 512 MB | Monitoring profile only |
-| `grafana` | 256 MB | Monitoring profile only |
+| `grafana` | 512 MB | Monitoring profile only |
 
-Total without monitoring: ~6 GB. Total with monitoring: ~6.9 GB. Allocate at least 8 GB to Docker.
+Total without monitoring: ~6 GB. Total with monitoring: ~7.1 GB. Allocate at least 8 GB to Docker.
