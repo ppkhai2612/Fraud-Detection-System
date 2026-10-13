@@ -104,9 +104,9 @@ The right enrichment strategy depends on three factors: how large is your refere
 For small, slowly-changing reference data, the simplest approach is loading everything into memory on every parallel task instance. [Flink’s broadcast state](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/fault-tolerance/broadcast_state/) does exactly this — it takes a stream of reference data and makes it available as in-memory state that all parallel instances can read.
 
 Broadcast state works well when:
-- Reference data is small enough to fit in memory (a useful rule of thumb: under 1GB)
-- Data changes infrequently — daily updates rather than per-second changes
-- You need sub-millisecond lookup latency
+- **Reference data is small enough to fit in memory** (a useful rule of thumb: under 1GB)
+- **Data changes infrequently** — daily updates rather than per-second changes
+- You need **sub-millisecond lookup latency**
 
 The implementation involves broadcasting reference data to all task instances and then connecting that broadcast stream with your main data stream:
 
@@ -172,18 +172,184 @@ The `processElement` method handles incoming transactions by looking up the acco
 The tradeoff is memory. Each parallel task instance holds a complete copy of the reference data. With 10 task instances and 500MB of reference data, you’re using 5GB total memory just for broadcast state.
 
 For fraud detection, broadcast state fits well for:
-- Account profiles when account counts are manageable (millions of accounts at ~1KB each fits in ~1GB)
-- Merchant blacklists which typically contain thousands of entries, not millions
-- Merchant category codes which are relatively small lookup tables
+- **Account profiles** when account counts are manageable (millions of accounts at ~1KB each fits in ~1GB)
+- **Merchant blacklists** which typically contain thousands of entries, not millions
+- **Merchant category codes** which are relatively small lookup tables
 
 One operational note: broadcast state can catch you off guard when reference data grows. We started with 50,000 merchants in our blacklist — maybe 5MB of data. Over two years it grew to 500,000 entries. So, monitor your broadcast state size and set alerts before it closes to memory limits.
 
 ### When Data is Too Large: Async I/O
 
+When reference data exceeds what fits in memory, you need to query an external system. The key is doing it asynchronously so queries for different events can overlap.
+
+Flink’s [async I/O](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/operators/asyncio/) lets you issue multiple concurrent requests to an external system. While one event’s lookup is in flight, other events can start their lookups. This improves throughput compared to synchronous queries.
+
+```java
+AsyncDataStream.orderedWait(
+    transactionStream,
+    new AsyncAccountLookup(),
+    30, TimeUnit.SECONDS,  // timeout
+    100  // max concurrent requests
+);
+```
+
+The async function extends `RichAsyncFunction` and uses the callback pattern to handle results:
+
+```java
+public class AsyncAccountLookup 
+    extends RichAsyncFunction<Transaction, EnrichedTransaction> {
+    
+    private transient RedisAsyncCommands<String, String> redisCommands;
+    
+    @Override
+    public void open(OpenContext openContext) throws Exception {
+        RedisClient client = RedisClient.create("redis://localhost:6379");
+        StatefulRedisConnection<String, String> connection = client.connect();
+        redisCommands = connection.async();
+    }
+    
+    @Override
+    public void asyncInvoke(
+            Transaction tx, 
+            ResultFuture<EnrichedTransaction> resultFuture) {
+        
+        RedisFuture<String> profileFuture = 
+            redisCommands.get("profile:" + tx.getAccountId());
+        
+        profileFuture.thenAccept(profileJson -> {
+            AccountProfile profile = deserialize(profileJson);
+            resultFuture.complete(
+                Collections.singleton(enrich(tx, profile))
+            );
+        });
+    }
+}
+```
+
+The `orderedWait` variant preserves event order - results are emitted in the same order events arrived, even if lookups complete out of order. This matters for fraud detection where velocity checks depend on processing transactions in sequence. The alternative `unorderedWait` emits results as lookups complete, which provides lower latency but changes event order.
+
+The tradeoffs with async I/O:
+- **Latency**: Adds milliseconds per event. Redis typically responds in 1–5ms; direct database queries take 5–50ms.
+- **Throughput**: Limited by the external system’s capacity and your configured max concurrent requests. Setting this too low creates backpressure; too high can overwhelm the external system.
+- **Failure handling**: Timeouts and retries need careful configuration. The 30-second timeout above is generous — in practice you might use 5–10 seconds and implement retry logic.
+
+Async I/O works well for:
+- **Large reference datasets** that don’t fit in memory
+- **Lookup patterns with good locality** where caching can reduce external calls
+- **Systems with an async-capable client** (Redis, many databases, HTTP APIs)
+
 ### When You Need Real-Time Updates: CDC-Backed Enrichment
+
+Both broadcast state and async I/O have freshness tradeoffs. Broadcast state updates only when new data flows through the broadcast stream. Async I/O reads from an external system that might be slightly stale or require cache invalidation.
+
+When reference data changes frequently and you need those changes reflected within seconds, CDC (Change Data Capture) provides another option. CDC streams database changes — inserts, updates, deletes — into Kafka topics. Your Flink job consumes both the transaction stream and the CDC stream, maintaining reference data in keyed state that updates in real-time.
+
+```java
+// CDC stream of account profile changes from database
+DataStream<AccountProfile> profileChanges = 
+    env.fromSource(cdcSource, WatermarkStrategy.noWatermarks(), "profile-cdc");
+
+// Connect transactions with CDC stream, keyed by account
+DataStream<EnrichedTransaction> enriched = transactionStream
+    .keyBy(tx -> tx.getAccountId())
+    .connect(profileChanges.keyBy(p -> p.getAccountId()))
+    .process(new CDCEnrichmentFunction());
+```
+
+The `CDCEnrichmentFunction` uses `CoProcessFunction` to handle both streams:
+
+```java
+public class CDCEnrichmentFunction 
+    extends CoProcessFunction<Transaction, AccountProfile, EnrichedTransaction> {
+    
+    private ValueState<AccountProfile> profileState;
+    
+    @Override
+    public void open(OpenContext openContext) throws Exception {
+        profileState = getRuntimeContext().getState(
+            new ValueStateDescriptor<>("profile", AccountProfile.class)
+        );
+    }
+    
+    @Override
+    public void processElement1(
+            Transaction tx, 
+            Context ctx, 
+            Collector<EnrichedTransaction> out) throws Exception {
+        
+        AccountProfile profile = profileState.value();
+        out.collect(enrich(tx, profile));
+    }
+    
+    @Override
+    public void processElement2(
+            AccountProfile profile, 
+            Context ctx, 
+            Collector<EnrichedTransaction> out) throws Exception {
+        
+        profileState.update(profile);
+    }
+}
+```
+- When a profile changes in the database, CDC captures that change and streams it to Flink. The job updates its keyed state immediately. The next transaction for that account sees the updated profile.
+- Unlike broadcast state where every task holds all profiles, CDC-backed enrichment partitions state by key. Each task instance only holds profiles for the accounts it’s responsible for. This scales better for large datasets.
+
+The tradeoffs:
+- **Freshness**: Changes reflected within seconds of database commit
+- **Memory**: Partitioned by key, so scales better than broadcast for large datasets
+- **Complexity**: Requires CDC infrastructure
+- **Ordering**: Transactions might arrive before their account’s profile. You need to handle the cold-start case where `profileState.value()` returns null.
+
+CDC-backed enrichment works well for:
+- **Frequently-updated reference data** like account risk scores that change based on recent activity
+- **Large datasets** where broadcast state’s memory multiplication is prohibitive
+- **Systems already using CDC** for other purposes
 
 ## Caching Strategies for Async I/O
 
+Async I/O to a database handles large datasets but adds latency and puts load on the external system. Caching reduces both problems by storing frequently-accessed data closer to the processing.
+
+The cache-aside pattern checks the cache first and falls back to the database on misses:
+
+```java
+@Override
+public void asyncInvoke(
+        Transaction tx, 
+        ResultFuture<EnrichedTransaction> resultFuture) {
+    
+    String accountId = tx.getAccountId();
+    
+    // Check cache first
+    RedisFuture<String> cacheFuture = cache.get("profile:" + accountId);
+    
+    cacheFuture.thenCompose(cached -> {
+        if (cached != null) {
+            return CompletableFuture.completedFuture(deserialize(cached));
+        }
+        
+        // Cache miss - query database and populate cache
+        return database.queryAsync(accountId)
+            .thenApply(profile -> {
+                cache.setex("profile:" + accountId, TTL_SECONDS, serialize(profile));
+                return profile;
+            });
+    }).thenAccept(profile -> {
+        resultFuture.complete(Collections.singleton(enrich(tx, profile)));
+    });
+}
+```
+
+Cache TTL (time-to-live) requires balancing freshness against hit rate:
+- **Too short**: High cache miss rate means most requests still hit the database
+- **Too long**: Stale data leads to incorrect fraud decisions
+
+For fraud detection, 5–15 minutes often works well for account profiles. A risk score that’s five minutes old is still useful. Static data like merchant categories can have longer TTLs — hours or even days.
+
+One gotcha: cache TTLs should account for the business impact of staleness. For blacklists, where a five-minute delay means approving transactions from a known fraudulent account, shorter TTLs or CDC-backed enrichment is safer.
+
+**Cache warming** helps avoid cold-start problems. When a Flink job starts or restarts, the cache is empty. A traffic spike with an empty cache creates a “thundering herd” that overwhelms the database. Pre-populating the cache with frequently-accessed accounts before the job starts prevents this.
+
+Another lesson: watch your async I/O max concurrency setting. The right number depends on your external system’s capacity, not what Flink can generate.
 
 ## Practical Patterns for Fraud Detection
 
@@ -230,3 +396,12 @@ DataStream<EnrichedTransaction> fullyEnriched =
 The ordering matters. Broadcast enrichments are fast and can filter out obvious fraud (blacklisted accounts) before more expensive async lookups. Geographic enrichment — the slowest step — happens last, and only for transactions that pass earlier checks.
 
 ## Handling Enrichment Failures
+
+Enrichment can fail. The account profile might not exist for a new account. The merchant lookup might timeout. The CDC stream might be delayed. What happens to the transaction?
+
+There are three options:
+- **Pass through with defaults**: Enrich what you can and use sensible defaults for missing data. A missing account profile might default to “high risk” — treat unknown accounts conservatively. This keeps transactions flowing but might increase false positives.
+- **Buffer and retry**: Hold the transaction and retry the lookup. This works for transient failures but risks building up a backlog if failures persist.
+- **Route to manual review**: Send transactions with missing enrichment data to a separate queue for human review. This ensures no fraud decisions are made with incomplete data but requires operational support.
+
+The right choice depends on your tolerance for false positives versus false negatives. Most systems use a combination.
