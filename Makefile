@@ -15,7 +15,7 @@ PYTHON := .venv/bin/python3
 # Core Lifecycle
 # ============================================================
 
-up: # Start all services
+up: # Start core services
 	$(COMPOSE) up -d
 	@echo
 	@echo "Services starting. Run 'make wait-healthy' to wait for readiness."
@@ -25,6 +25,8 @@ down: # Stop and remove all services (including generator and monitoring)
 
 stop: # Stop all services (including generator and monitoring)
 	$(COMPOSE) --profile generate --profile monitoring stop
+
+restart: down up # Restart all services
 
 status: # Show service status
 	$(COMPOSE) ps
