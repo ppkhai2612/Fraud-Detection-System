@@ -1,9 +1,10 @@
-.PHONY: up down restart status logs clean \
+.PHONY: up down stop restart status logs clean \
 		setup setup-python setup-topics setup-schemas \
 		build build-flink \
 		deploy-jobs cancel-jobs produce-test-transaction produce-test-data \
 		start-generator stop-generator logs-generator \
 		start-monitoring stop-monitoring \
+		demo-lag demo-model-down demo-recovery demo-backpressure \
 		check-health wait-healthy \
 		open-flink open-grafana open-prometheus help
 
@@ -19,8 +20,11 @@ up: # Start all services
 	@echo
 	@echo "Services starting. Run 'make wait-healthy' to wait for readiness."
 
-down: # Stop all services (including generator and monitoring)
+down: # Stop and remove all services (including generator and monitoring)
 	$(COMPOSE) --profile generate --profile monitoring down
+
+stop: # Stop all services (including generator and monitoring)
+	$(COMPOSE) --profile generate --profile monitoring stop
 
 status: # Show service status
 	$(COMPOSE) ps
@@ -143,6 +147,17 @@ open-prometheus: # Open Prometheus in browser
 # Demo Scenarios
 # ============================================================
 
+demo-lag: # Demo: flood pipeline to show consumer lag
+	@bash demo/lag-spike.sh
+
+demo-model-down: # Demo: kill model service, watch fallback
+	@bash demo/model-outage.sh
+
+demo-recovery: # Demo: kill TaskManager, watch checkpoint recovery
+	@bash demo/checkpoint-recovery.sh
+
+demo-backpressure: # Demo: throttle pipeline to create backpressure
+	@bash demo/backpressure.sh
 
 # ============================================================
 # Utilities

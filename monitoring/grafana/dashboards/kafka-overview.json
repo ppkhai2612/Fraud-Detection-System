@@ -36,8 +36,8 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "kafka_consumergroup_lag{group=~\"flink.*\"}",
-          "legendFormat": "{{group}} / {{topic}} / p{{partition}}",
+          "expr": "kafka_consumergroup_lag{consumergroup=~\"flink.*\"}",
+          "legendFormat": "{{consumergroup}} / {{topic}} / p{{partition}}",
           "refId": "A"
         }
       ],
@@ -56,7 +56,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "sum(kafka_consumergroup_lag{group=~\"flink.*\"})",
+          "expr": "sum(kafka_consumergroup_lag{consumergroup=~\"flink.*\"})",
           "refId": "A"
         }
       ],

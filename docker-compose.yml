@@ -146,7 +146,7 @@ services:
       kafka:
         condition: service_healthy
     command:
-      - --kafka.server=kakfa:29092
+      - --kafka.server=kafka:29092
       - --topic.filter=.*
       - --group.filter=.*
     ports:
@@ -190,6 +190,6 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
     profiles:
       - monitoring
