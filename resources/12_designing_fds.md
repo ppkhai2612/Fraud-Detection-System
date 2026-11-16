@@ -167,7 +167,7 @@ The pipeline has five logical stages, each a separate Flink operator or job.
 - **Rule Engine** and **Model Scorer** operate on the same enriched, feature-augmented stream simultaneously. The rule engine evaluates deterministic fraud rules. The model scorer calls an external ML service asynchronously using Flink’s async I/O.
 - **Score Fusion** combines rule scores and model scores into a final decision: approve, review or decline.
 
-Partitioning the transactions topic by `account_id` ensures all transactions for a given account land on the same Kafka partition and route to the same Flink task instance after keyBy. Velocity checks need to see every transaction for an account, not a random subset - this partitioning strategy makes that possible.
+Partitioning the transactions topic by `account_id` ensures all transactions for a given account land on the same Kafka partition and route to the same Flink task instance after `keyBy`. Velocity checks need to see every transaction for an account, not a random subset - this partitioning strategy makes that possible.
 
 ## Rule-Based Detection
 
@@ -186,10 +186,10 @@ Rules handle patterns that humans can define explicitly. ML models handle patter
 **Feature computation** for ML starts with the same per-account state that feeds the rule engine but extends further. The model might consume dozens of features: transaction count and sum across multiple time windows (1 hour, 24 hours, 7 days, 30 days), average transaction amount, standard deviation, time since last transaction, channel distribution (what percentage of this account’s transactions are online vs. in-store), merchant category distribution and various ratios comparing current transaction characteristics to historical baselines.
 
 - **Online features** are computed in real-time from the streaming pipeline’s state — transaction velocity, recency, current session behavior. **Offline features** are computed in batch from the data warehouse — long-term spending patterns, customer segment, credit risk scores. The offline features are pre-computed and loaded as reference data, similar to how account profiles work in the enrichment stage.
-- **Feature freshness matters**. A customer’s 30-day average transaction amount computed yesterday is probably still useful today. Their 1-hour transaction count computed an hour ago is stale. The architecture separates features by their update frequency — real-time features come from Flink state, while slower-changing features come from periodic batch computation and are loaded as reference data.
+- **Feature freshness** matters. A customer’s 30-day average transaction amount computed yesterday is probably still useful today. Their 1-hour transaction count computed an hour ago is stale. The architecture separates features by their update frequency — real-time features come from Flink state, while slower-changing features come from periodic batch computation and are loaded as reference data.
 - This split between online and offline features creates a practical challenge: **keeping them synchronized**. The model was trained on a feature vector that combines both. If the offline features are stale (because the batch job hasn’t run) or the online features are missing (because the Flink job restarted and hasn’t rebuilt state from its latest checkpoint), the model receives inputs that don’t match its training distribution. The result is degraded prediction quality, not outright failure — which makes it harder to detect than a crash. Monitoring **feature completeness** and **freshness** alongside **model accuracy** is how you catch this drift before it becomes a problem.
 
-## Model Serving Integration
+### Model Serving Integration
 
 **The ML model runs as a separate service, not embedded in Flink**. Data science teams have their own deployment cadence for model updates. Models may require GPU inference hardware that doesn’t match Flink’s cluster topology. Model serving frameworks (TensorFlow Serving, Triton or even a FastAPI + scikit-learn service) have their own scaling and versioning capabilities.
 
