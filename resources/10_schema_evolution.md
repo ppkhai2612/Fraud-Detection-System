@@ -4,12 +4,12 @@ Link: https://medium.com/@blakelassiter/the-schema-change-that-broke-production-
 
 ## Why Schema Matters More in Streaming
 
-In batch systems, schema-on-read is common. You dump data into a lake, figure out the structure when you query it. If a column changes type, you update your query or transformation and reprocess. The feedback loop is slow but forgiving.
+**In batch systems, schema-on-read is common**. You dump data into a lake, figure out the structure when you query it. If a column changes type, you update your query or transformation and reprocess. The feedback loop is slow but forgiving.
 
-Streaming systems enforce schema-on-write. The producer serializes each message against a schema before sending it to Kafka. The consumer deserializes using its own copy of the schema. If those two schemas are incompatible, deserialization fails. And in a streaming pipeline, deserialization failures aren’t something you can quietly fix and re-run.
+**Streaming systems enforce schema-on-write**. The producer serializes each message against a schema before sending it to Kafka. The consumer deserializes using its own copy of the schema. If those two schemas are incompatible, deserialization fails. And in a streaming pipeline, deserialization failures aren’t something you can quietly fix and re-run.
 - Messages back up, consumer lag grows and alerts fire. If the consumer is a Flink job maintaining state for fraud detection, every minute of lag is a minute where fraudulent transactions go undetected.
 
-The core challenge is version coexistence. During any rolling deployment, some producer instances are running old code with schema v1 while others have already restarted with schema v2. The Kafka topic contains a mix of both and consumers might be on either version. The schema needs to handle all four combinations: old producer to old consumer, old producer to new consumer, new producer to old consumer, new producer to new consumer.
+The core challenge is **version coexistence**. During any rolling deployment, some producer instances are running old code with schema v1 while others have already restarted with schema v2. The Kafka topic contains a mix of both and consumers might be on either version. The schema needs to handle all four combinations: old producer to old consumer, old producer to new consumer, new producer to old consumer, new producer to new consumer.
 - Batch systems sidestep this by processing data in discrete runs. Streaming systems don’t get that option.
 
 ## Choosing a Serialization Format
@@ -186,11 +186,7 @@ Consider a rolling producer update:
 - **T2**: More producers restart. The mix shifts toward v2.
 - **T3**: All producers on v2. But some consumers might still be on v1.
 
-Under BACKWARD compatibility, the new schema can read old data but old consumers can’t read new data. That means consumers must be upgraded before producers. If you deploy producers first (as in this scenario), old consumers fail on v2 messages.
-
-Under FORWARD compatibility, old consumers can read new data, so deploying producers first is safe.
-
-FULL compatibility covers both directions, meaning either deployment order works.
+Under **BACKWARD compatibility**, the new schema can read old data but old consumers can’t read new data. That means consumers must be upgraded before producers. If you deploy producers first (as in this scenario), old consumers fail on v2 messages. Under **FORWARD compatibility**, old consumers can read new data, so deploying producers first is safe. **FULL compatibility** covers both directions, meaning either deployment order works.
 
 **The deployment order rule**:
 - BACKWARD: upgrade consumers first, then producers
@@ -200,39 +196,38 @@ FULL compatibility covers both directions, meaning either deployment order works
 ## Practical Application: Evolving the Fraud Detection Schema
 
 Returning to the fraud detection pipeline, adding `device_fingerprint` to the transaction schema for mobile fraud detection.
+- The original schema:
 
-The original schema:
+    ```
+    {
+    "type": "record",
+    "name": "Transaction",
+    "namespace": "com.frauddetection",
+    "fields": [
+        {"name": "transaction_id", "type": "string"},
+        {"name": "account_id", "type": "string"},
+        {"name": "amount", "type": "double"},
+        {"name": "timestamp", "type": "long"}
+    ]
+    }
+    ```
 
-```
-{
-  "type": "record",
-  "name": "Transaction",
-  "namespace": "com.frauddetection",
-  "fields": [
-    {"name": "transaction_id", "type": "string"},
-    {"name": "account_id", "type": "string"},
-    {"name": "amount", "type": "double"},
-    {"name": "timestamp", "type": "long"}
-  ]
-}
-```
+- The evolved schema with `device_fingerprint`:
 
-The evolved schema with `device_fingerprint`:
-
-```
-{
-  "type": "record",
-  "name": "Transaction",
-  "namespace": "com.frauddetection",
-  "fields": [
-    {"name": "transaction_id", "type": "string"},
-    {"name": "account_id", "type": "string"},
-    {"name": "amount", "type": "double"},
-    {"name": "timestamp", "type": "long"},
-    {"name": "device_fingerprint", "type": ["null", "string"], "default": null}
-  ]
-}
-```
+    ```
+    {
+    "type": "record",
+    "name": "Transaction",
+    "namespace": "com.frauddetection",
+    "fields": [
+        {"name": "transaction_id", "type": "string"},
+        {"name": "account_id", "type": "string"},
+        {"name": "amount", "type": "double"},
+        {"name": "timestamp", "type": "long"},
+        {"name": "device_fingerprint", "type": ["null", "string"], "default": null}
+    ]
+    }
+    ```
 
 The point is the union type with null and the default value. This makes the change FULL compatible — new consumers reading old messages get `device_fingerprint` as null, while old consumers reading new messages simply ignore the unfamiliar field.
 
